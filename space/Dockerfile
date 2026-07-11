@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+ENV HF_HOME=/tmp/huggingface \
+    HF_HUB_CACHE=/tmp/huggingface/hub \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app.py .
+
+EXPOSE 7860
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]

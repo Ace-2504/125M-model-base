@@ -1,0 +1,230 @@
+@import "tailwindcss";
+
+/* Amber Lab — default theme (also duplicated as [data-theme="amber"]). */
+:root,
+[data-theme="amber"] {
+  --bg: #07090d;
+  --bg-soft: #0c0f16;
+  --panel: #0f131c;
+  --panel-2: #121826;
+  --border: #1c2333;
+  --border-soft: #161c28;
+  --fg: #e7ecf4;
+  --fg-muted: #8b95a7;
+  --fg-dim: #5b6478;
+  --accent: #f5b342;   /* amber  — case law */
+  --accent-2: #38d9c4; /* teal   — sec */
+  --accent-3: #a78bfa; /* violet — web */
+  --grid: rgba(255, 255, 255, 0.025);
+  --glow-1: rgba(245, 179, 66, 0.05);
+  --glow-2: rgba(56, 217, 196, 0.045);
+}
+
+[data-theme="cobalt"] {
+  --bg: #06080f;
+  --bg-soft: #0a0e1a;
+  --panel: #0e1424;
+  --panel-2: #121a2e;
+  --border: #1e2740;
+  --border-soft: #172038;
+  --fg: #e8edf6;
+  --fg-muted: #8893ab;
+  --fg-dim: #5a6480;
+  --accent: #5b93ff;   /* blue   — case law */
+  --accent-2: #22d3ee; /* cyan   — sec */
+  --accent-3: #9d7bff; /* indigo — web */
+  --grid: rgba(255, 255, 255, 0.025);
+  --glow-1: rgba(91, 147, 255, 0.06);
+  --glow-2: rgba(34, 211, 238, 0.05);
+}
+
+[data-theme="phosphor"] {
+  --bg: #060a07;
+  --bg-soft: #0a1109;
+  --panel: #0d150f;
+  --panel-2: #111c14;
+  --border: #1b2a1f;
+  --border-soft: #15211a;
+  --fg: #dcf5e3;
+  --fg-muted: #7fa48a;
+  --fg-dim: #55705d;
+  --accent: #4ade80;   /* green — case law */
+  --accent-2: #eab308; /* amber — sec */
+  --accent-3: #22d3ee; /* cyan  — web */
+  --grid: rgba(120, 255, 170, 0.03);
+  --glow-1: rgba(74, 222, 128, 0.05);
+  --glow-2: rgba(34, 211, 238, 0.045);
+}
+
+[data-theme="ember"] {
+  --bg: #0c0708;
+  --bg-soft: #120b0a;
+  --panel: #17100e;
+  --panel-2: #1e1512;
+  --border: #2c1c1a;
+  --border-soft: #241614;
+  --fg: #f6e9e6;
+  --fg-muted: #b0958f;
+  --fg-dim: #7a625c;
+  --accent: #fb7185;   /* rose   — case law */
+  --accent-2: #fb923c; /* orange — sec */
+  --accent-3: #fbbf24; /* gold   — web */
+  --grid: rgba(255, 200, 190, 0.025);
+  --glow-1: rgba(251, 113, 133, 0.05);
+  --glow-2: rgba(251, 146, 60, 0.045);
+}
+
+[data-theme="nord"] {
+  --bg: #232a37;
+  --bg-soft: #2a3140;
+  --panel: #2b3242;
+  --panel-2: #323a4c;
+  --border: #3a4356;
+  --border-soft: #333b4c;
+  --fg: #e5e9f0;
+  --fg-muted: #9aa4b8;
+  --fg-dim: #6b7488;
+  --accent: #88c0d0;   /* frost — case law */
+  --accent-2: #a3be8c; /* sage  — sec */
+  --accent-3: #b48ead; /* mauve — web */
+  --grid: rgba(255, 255, 255, 0.02);
+  --glow-1: rgba(136, 192, 208, 0.07);
+  --glow-2: rgba(163, 190, 140, 0.05);
+}
+
+/* Parchment — the one light theme (default). Deeper warm page bg so it isn't a
+   bright wash; near-white (not pure-white) panels that lift off it via a clear
+   border + soft shadow (see the .panel rule below). */
+[data-theme="parchment"] {
+  --bg: #e7e1d2;
+  --bg-soft: #f4f0e7;
+  --panel: #fdfbf6;
+  --panel-2: #f6f2e9;
+  --border: #d5cbb5;
+  --border-soft: #e1d9c6;
+  --fg: #211f1a;
+  --fg-muted: #6b675c;
+  --fg-dim: #8f887a;
+  --accent: #b45309;   /* ochre — case law */
+  --accent-2: #0f766e; /* pine  — sec */
+  --accent-3: #6d28d9; /* plum  — web */
+  --grid: rgba(0, 0, 0, 0.035);
+  --glow-1: rgba(180, 83, 9, 0.05);
+  --glow-2: rgba(15, 118, 110, 0.05);
+}
+
+/* Light theme needs shadow (not just gradient) to separate cards from the page. */
+[data-theme="parchment"] .panel {
+  box-shadow: 0 1px 2px rgba(70, 60, 40, 0.05), 0 6px 16px rgba(70, 60, 40, 0.06);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-sans);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+/* Fixed grid + glow layer. On its own fixed pseudo-element (not
+   background-attachment: fixed on body) so it repaints when the theme
+   variables change at runtime. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(60rem 40rem at 80% -10%, var(--glow-1), transparent 60%),
+    radial-gradient(50rem 40rem at 0% 10%, var(--glow-2), transparent 55%),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+}
+
+/* Smoothly cross-fade panel/border colors when the theme changes. */
+.panel,
+.panel-inset,
+.tag,
+input,
+textarea,
+button {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  font-feature-settings: "tnum" 1, "cv01" 1;
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--panel), var(--bg-soft));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.panel-inset {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+
+.tag {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.hairline {
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  height: 1px;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+.live-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes flow {
+  to { stroke-dashoffset: -24; }
+}
+.flow-line {
+  stroke-dasharray: 4 8;
+  animation: flow 1.2s linear infinite;
+}
+
+.link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  transition: background-size 0.25s ease;
+}
+.link-underline:hover {
+  background-size: 100% 1px;
+}
