@@ -16,7 +16,8 @@ export const maxDuration = 60; // seconds (Vercel cap); a warm generation takes 
 const SPACE_URL = (
   process.env.INFERENCE_URL ?? "https://opening-dry-call-commissioners.trycloudflare.com"
 ).replace(/\/$/, "");
-const INFERENCE_BACKEND = process.env.INFERENCE_BACKEND ?? "gradio";
+const INFERENCE_BACKEND =
+  process.env.INFERENCE_BACKEND ?? (SPACE_URL.includes(".hf.space") ? "gradio" : "fastapi");
 const INFERENCE_SECRET = process.env.INFERENCE_SECRET;
 const HF_TOKEN = process.env.HF_TOKEN;
 const FN = "generate"; // Gradio api_name
