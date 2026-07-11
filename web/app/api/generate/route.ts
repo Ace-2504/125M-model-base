@@ -16,6 +16,7 @@ export const maxDuration = 60; // seconds (Vercel cap); a warm generation takes 
 const SPACE_URL = (
   process.env.INFERENCE_URL ?? "https://ace-2504-125m-slm-base.hf.space"
 ).replace(/\/$/, "");
+const HF_TOKEN = process.env.HF_TOKEN;
 const FN = "generate"; // Gradio api_name
 
 export async function POST(request: Request) {
@@ -48,7 +49,10 @@ export async function POST(request: Request) {
     // 1) enqueue the call
     const enqueue = await fetch(`${SPACE_URL}/gradio_api/call/${FN}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(HF_TOKEN ? { Authorization: `Bearer ${HF_TOKEN}` } : {}),
+      },
       body: JSON.stringify({ data }),
       signal: AbortSignal.timeout(45_000),
     });
