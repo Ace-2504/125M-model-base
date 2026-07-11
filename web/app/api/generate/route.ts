@@ -16,6 +16,8 @@ export const maxDuration = 60; // seconds (Vercel cap); a warm generation takes 
 const SPACE_URL = (
   process.env.INFERENCE_URL ?? "https://opening-dry-call-commissioners.trycloudflare.com"
 ).replace(/\/$/, "");
+const INFERENCE_BACKEND = process.env.INFERENCE_BACKEND ?? "gradio";
+const INFERENCE_SECRET = process.env.INFERENCE_SECRET;
 const HF_TOKEN = process.env.HF_TOKEN;
 const FN = "generate"; // Gradio api_name
 
@@ -37,15 +39,53 @@ export async function POST(request: Request) {
   if (!prompt) {
     return NextResponse.json({ ready: false, message: "Enter a prompt." }, { status: 400 });
   }
-  const data = [
+  const generation = {
     prompt,
-    Number(body.temperature ?? 0.8),
-    Number(body.maxTokens ?? 90),
-    Number(body.topP ?? 0.95),
-    Number(body.topK ?? 50),
-  ];
+    temperature: Number(body.temperature ?? 0.8),
+    maxTokens: Number(body.maxTokens ?? 90),
+    topP: Number(body.topP ?? 0.95),
+    topK: Number(body.topK ?? 50),
+  };
 
   try {
+    if (INFERENCE_BACKEND === "fastapi") {
+      const response = await fetch(`${SPACE_URL}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(INFERENCE_SECRET ? { Authorization: `Bearer ${INFERENCE_SECRET}` } : {}),
+        },
+        body: JSON.stringify(generation),
+        signal: AbortSignal.timeout(55_000),
+      });
+
+      const result = (await response.json().catch(() => null)) as {
+        ready?: boolean;
+        completion?: string;
+        detail?: string;
+      } | null;
+
+      if (!response.ok || !result?.ready) {
+        return NextResponse.json(
+          {
+            ready: false,
+            message: result?.detail ?? "The local model server returned an error.",
+          },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ ready: true, completion: result.completion ?? "" });
+    }
+
+    const data = [
+      generation.prompt,
+      generation.temperature,
+      generation.maxTokens,
+      generation.topP,
+      generation.topK,
+    ];
+
     // 1) enqueue the call
     const enqueue = await fetch(`${SPACE_URL}/gradio_api/call/${FN}`, {
       method: "POST",
