@@ -23,7 +23,9 @@ model.eval()
 
 
 @spaces.GPU(duration=60)
-def generate(prompt: str, temperature: float, max_new_tokens: int, top_p: float) -> str:
+def generate(
+    prompt: str, temperature: float, max_new_tokens: int, top_p: float, top_k: int
+) -> str:
     prompt = (prompt or "").strip()
     if not prompt:
         return "Enter a prompt to continue."
@@ -39,6 +41,7 @@ def generate(prompt: str, temperature: float, max_new_tokens: int, top_p: float)
             do_sample=do_sample,
             temperature=float(temperature) if do_sample else None,
             top_p=float(top_p),
+            top_k=int(top_k),
             pad_token_id=tokenizer.pad_token_id,
             eos_token_id=tokenizer.eos_token_id,
         )
@@ -46,9 +49,9 @@ def generate(prompt: str, temperature: float, max_new_tokens: int, top_p: float)
 
 
 EXAMPLES = [
-    ["The plaintiff alleges that the defendant", 0.8, 90, 0.95],
-    ["The court held that", 0.8, 90, 0.95],
-    ["In this agreement, the parties", 0.8, 90, 0.95],
+    ["The plaintiff alleges that the defendant", 0.8, 90, 0.95, 50],
+    ["The court held that", 0.8, 90, 0.95, 50],
+    ["In this agreement, the parties", 0.8, 90, 0.95, 50],
 ]
 
 with gr.Blocks(title="SLM-125M") as demo:
@@ -71,15 +74,16 @@ with gr.Blocks(title="SLM-125M") as demo:
             temperature = gr.Slider(0.0, 1.5, value=0.8, step=0.05, label="Temperature")
             max_new_tokens = gr.Slider(10, MAX_NEW_TOKENS_CAP, value=90, step=1, label="Max new tokens")
             top_p = gr.Slider(0.0, 1.0, value=0.95, step=0.01, label="Top-p")
+            top_k = gr.Slider(0, 100, value=50, step=1, label="Top-k")
 
     output = gr.Textbox(label="Completion", lines=8)
 
     generate_btn.click(
         generate,
-        inputs=[prompt, temperature, max_new_tokens, top_p],
+        inputs=[prompt, temperature, max_new_tokens, top_p, top_k],
         outputs=output,
     )
-    gr.Examples(EXAMPLES, inputs=[prompt, temperature, max_new_tokens, top_p])
+    gr.Examples(EXAMPLES, inputs=[prompt, temperature, max_new_tokens, top_p, top_k])
 
 if __name__ == "__main__":
     demo.launch(theme=gr.themes.Soft())
