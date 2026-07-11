@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60; // seconds (Vercel cap); a warm generation takes a few
 
 const SPACE_URL = (
-  process.env.INFERENCE_URL ?? "https://ace-2504-125m-slm-base.hf.space"
+  process.env.INFERENCE_URL ?? "https://opening-dry-call-commissioners.trycloudflare.com"
 ).replace(/\/$/, "");
 const HF_TOKEN = process.env.HF_TOKEN;
 const FN = "generate"; // Gradio api_name
