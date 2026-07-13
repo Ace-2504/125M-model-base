@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60; // seconds (Vercel cap); a warm generation takes a few
 
 const SPACE_URL = (
-  process.env.INFERENCE_URL ?? "https://opening-dry-call-commissioners.trycloudflare.com"
+  process.env.INFERENCE_URL ?? "https://cholesterol-spouse-flash-highland.trycloudflare.com"
 ).replace(/\/$/, "");
 const INFERENCE_BACKEND =
   process.env.INFERENCE_BACKEND ?? (SPACE_URL.includes(".hf.space") ? "gradio" : "fastapi");
