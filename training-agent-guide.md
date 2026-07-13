@@ -44,7 +44,7 @@ If you skip the export before the next epoch, that epoch's exact weights are los
 | Checkpoint | `/data/checkpoints/base/ckpt.pt` · metrics: `/data/checkpoints/base/metrics.jsonl` |
 | Tokenizer / tokens on volume | `/data/tokenizer`, `/data/tokens/{train,val}` |
 | GPU | A100-40GB · `micro_batch_size=32`, global batch 524,288 tokens = **512 windows/step** |
-| Steps per epoch | **3,889** (1,991,368 train windows ÷ 512). Total steps for epoch N = `3889 × N` |
+| Steps per epoch | **3,889** (1,991,368 train windows ÷ 512). Cumulative *target* `total_steps = 3889 × N`, but with `resume=True` the epoch-N run only trains the last **3,889 new steps** (it skips the `3889×(N-1)` already done) — so **each epoch ≈ one epoch of compute (~5 h), not N×**. |
 | Seed | 1337 · LR 6e-4 → 6e-5 cosine · warmup 200M tokens (~382 steps) |
 | HF model repos | epoch 1 = `Ace-2504/slm-125m-base` · epoch N≥2 = `Ace-2504/slm-125m-e{N}` |
 | Windows / auth | Modal + HF already authenticated as `ace-2504`. Prefix Python/Modal/HF commands with `PYTHONIOENCODING=utf-8` (cp1252 crashes on ✓/emoji output — see `debugging/11`). |
@@ -75,10 +75,20 @@ Work in that folder for the training + config edits. (The eval reuses the single
 
 ## STEP B — Continue pretraining for epoch N on Modal
 
-The engine (`train_core.run`) resumes from the checkpoint and trains until
-`total_steps = 3889 × epochs`. Setting `epochs=N` and `resume=True` trains exactly
-the Nth pass (steps `3889×(N-1)` → `3889×N`), each epoch using a fresh data
-permutation (`seed + epoch`).
+The engine (`train_core.run`) resumes from the checkpoint and trains until the
+cumulative target `total_steps = 3889 × epochs`. Setting `epochs=N` with
+`resume=True` trains **only the Nth pass** — the loop is `range(start_step,
+total_steps)` where `start_step` is the checkpoint's step, so for epoch 2 it runs
+`range(3889, 7778)` = **3,889 new steps**, not 7,778. Each epoch is therefore ~one
+epoch of compute (~5 h / ~one epoch of A100 cost), *not* N× — the `×N` is just the
+finish line, and resume skips everything already done. Each epoch uses a fresh
+data permutation (`seed + epoch`).
+
+> **This cheapness depends entirely on `resume=True` + the prior checkpoint being
+> present on the volume.** If resume is off or `ckpt.pt` is missing, it retrains
+> all `3889×N` steps from scratch (the expensive case) — so never clear the
+> checkpoint, and confirm `modal volume ls slm-125m checkpoints/base` shows
+> `ckpt.pt` before launching.
 
 1. In the epoch-N clone, edit **`modal_train.py`** → set `epochs=N` in the
    `pretrain()` call (change the hardcoded `epochs=1`). Keep `resume=True`.
