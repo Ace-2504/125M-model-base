@@ -299,8 +299,22 @@ cp -r "C:/Users/harma/slm-125m-eval/screenshots_v3"   "C:/Users/harma/slm-125m-e
 
 ## STEP F — Cross-epoch comparison (the research payoff)
 
-Append this epoch's headline numbers to `EPOCHS.md` (in the epoch-N clone or the
-eval clone) so the trajectory is explicit:
+**Automated trajectory chart.** After archiving this epoch (Step E5), render the
+SLM's across-epoch trajectory with `compare_epochs.py` (in the eval clone). It
+reads every `results_e{N}/` and plots bits-per-byte per domain across epochs +
+CaseHOLD across epochs:
+```bash
+# one-time backfill of epoch 1's eval (skip if results_e1/ already exists):
+[ -d "C:/Users/harma/slm-125m-eval/results_e1" ] || cp -r "C:/Users/harma/slm-125m-eval/results" "C:/Users/harma/slm-125m-eval/results_e1"
+cd "C:/Users/harma/slm-125m-eval/experiment"
+PYTHONIOENCODING=utf-8 PLAYWRIGHT_BROWSERS_PATH="C:/Users/harma/slm-125m-eval/.pw-browsers" "C:/Users/harma/slm-125m-eval/.venv/Scripts/python.exe" compare_epochs.py
+```
+Outputs: `results/EPOCH_COMPARISON.md`, `results/report_epochs.html`,
+`results/epoch_comparison.png`. **Lines turning upward = overfitting** on the fixed
+2.04B-token corpus (the key thing to watch for epochs 2+).
+
+Also append this epoch's headline numbers to `EPOCHS.md` (in the epoch-N clone or
+the eval clone) so the trajectory is explicit:
 
 | Epoch | val ppl (own tok) | SEC bits/byte | Legal(SCOTUS) bits/byte | CaseHOLD acc | wall-clock | notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -313,6 +327,50 @@ its position vs the baselines changed.
 
 ---
 
+## STEP G — Publish a per-epoch frontend to its own Vercel URL
+
+Each epoch gets its own live site that looks identical but shows that epoch's
+numbers, at its own clean URL (`125m-slm-e{N}.vercel.app`). Epoch 1's site
+(`125m-slm.vercel.app`) is a separate project and stays untouched.
+
+1. **Update the numbers (one place).** In the epoch-N clone, edit
+   **`web/lib/model.ts`** → the `RUN` object only:
+   ```ts
+   export const RUN = {
+     epoch: N,
+     valPerplexity: "<this epoch's val ppl>",
+     valLoss: "<this epoch's val loss>",
+     trainedHours: "<cumulative A100 wall-clock>",
+     tokensPerSec: "<from Step C>",
+   } as const;
+   ```
+   Everything else on the page (hero stat tile, the "what this is" paragraph, the
+   pretrain chip) reads from `RUN`/`epochLabel` — no other edits needed. Sanity
+   check: `npm --prefix web install && npm --prefix web run build`.
+
+2. **(Optional) point the demo at this epoch's model.** The `/api/generate` route
+   targets `INFERENCE_URL`. If you stand up a per-epoch inference endpoint, set that
+   env var in the new Vercel project; otherwise the demo keeps its current target.
+
+3. **Deploy to a NEW Vercel project** (the `vercel` CLI is already installed +
+   logged in as this user). From the clone's `web/`:
+   ```bash
+   cd "C:/Users/harma/slm-125m-epoch{N}/web"
+   vercel project add 125m-slm-e{N}
+   vercel deploy --prod --yes --project 125m-slm-e{N}
+   ```
+   - `web/vercel.json` pins `framework: nextjs` and `package.json` uses a patched
+     Next.js, so the CLI build works (see `debugging/12`, `debugging/13`). Deploying
+     from inside `web/` means no Root-Directory setting is needed for a CLI deploy.
+   - Production URL = `https://125m-slm-e{N}.vercel.app`. **Verify** it returns 200
+     and shows the updated perplexity/epoch:
+     ```bash
+     curl -s -o /dev/null -w "%{http_code}\n" https://125m-slm-e{N}.vercel.app
+     curl -s https://125m-slm-e{N}.vercel.app | grep -o "<this epoch's val ppl>"
+     ```
+
+---
+
 ## Ordering checklist (do not reorder)
 
 1. `git clone` main repo → `slm-125m-epoch{N}` (Step A)
@@ -320,8 +378,9 @@ its position vs the baselines changed.
 3. Edit `epochs=N` in the clone's `modal_train.py`; `modal run --detach` (Step B)
 4. Wait for step `3889×N`; capture `metrics.jsonl` + Modal params → `training_params_e{N}.md` (Step C)
 5. **Auto-export epoch N to `Ace-2504/slm-125m-e{N}` and verify** (+ optional volume snapshot) — the agent does this automatically at end of run (Step D)
-6. Point the eval at epoch N; run v2 harness + downstream + build_report_v3 + shoot_v3; archive (Step E)
-7. Update `EPOCHS.md` trajectory; write the verdict (Step F)
+6. Point the eval at epoch N; run v2 harness + downstream + build_report_v3 + shoot_v3; archive to `results_e{N}/` (Step E)
+7. Run `compare_epochs.py`; update `EPOCHS.md` trajectory; write the verdict (Step F)
+8. Update `web/lib/model.ts` `RUN` to epoch N; deploy per-epoch frontend → `125m-slm-e{N}.vercel.app` (Step G)
 
 ## Gotchas (see `debugging/` for full write-ups)
 

@@ -8,13 +8,28 @@
  * replaced with the internally-consistent figures this pipeline produced.
  */
 
+/**
+ * Per-run (per-epoch) values — the ONLY numbers that change between epochs.
+ * For each new training epoch, update this block (and redeploy). Everything else
+ * on the page is fixed architecture / corpus and never changes.
+ */
+export const RUN = {
+  epoch: 1,
+  valPerplexity: "11.35",
+  valLoss: "2.43",
+  trainedHours: "5.1", // cumulative A100 wall-clock across all epochs
+  tokensPerSec: "111k",
+} as const;
+
+export const epochLabel = RUN.epoch === 1 ? "1 epoch" : `${RUN.epoch} epochs`;
+
 export const HEADLINE = {
   params: "125.8M",
   vocab: "16,384",
   context: "1,024",
   trainTokens: "2.04B",
-  valPerplexity: "11.35", // final val perplexity, step 3889 (full epoch)
-  cost: "~5.1 h", // A100 wall-clock, 1 epoch
+  valPerplexity: RUN.valPerplexity,
+  cost: `~${RUN.trainedHours} h`,
 } as const;
 
 export type Stat = { label: string; value: string; sub?: string; pending?: boolean };
@@ -24,8 +39,8 @@ export const HEADLINE_STATS: Stat[] = [
   { label: "vocabulary", value: "16,384", sub: "byte-level BPE" },
   { label: "context window", value: "1,024", sub: "tokens" },
   { label: "training tokens", value: "2.04B", sub: "+20.6M held-out val" },
-  { label: "val perplexity", value: "11.35", sub: "val loss 2.43 · 1 epoch" },
-  { label: "trained in", value: "5.1 h", sub: "A100 · ~111k tok/s" },
+  { label: "val perplexity", value: RUN.valPerplexity, sub: `val loss ${RUN.valLoss} · ${epochLabel}` },
+  { label: "trained in", value: `${RUN.trainedHours} h`, sub: `A100 · ~${RUN.tokensPerSec} tok/s` },
 ];
 
 export const ARCHITECTURE: { k: string; v: string }[] = [

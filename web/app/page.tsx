@@ -5,6 +5,8 @@ import {
   DEDUP,
   TOTAL_KEPT,
   TOTAL_REMOVED,
+  RUN,
+  epochLabel,
 } from "@/lib/model";
 import Demo from "@/components/Demo";
 import CorpusChart from "@/components/CorpusChart";
@@ -117,9 +119,9 @@ export default function Home() {
 
             <p className="mt-3 text-[var(--fg-muted)] leading-relaxed text-[0.95rem]">
               The honest quality number is{" "}
-              <b className="font-semibold text-[var(--fg)]">held-out validation perplexity: 11.35</b>{" "}
-              (lower is better), reached in a{" "}
-              <b className="font-semibold text-[var(--fg)]">single epoch</b> over 2.04B
+              <b className="font-semibold text-[var(--fg)]">held-out validation perplexity: {RUN.valPerplexity}</b>{" "}
+              (lower is better), reached after{" "}
+              <b className="font-semibold text-[var(--fg)]">{epochLabel}</b> over 2.04B
               tokens. It has picked up the{" "}
               <b className="font-semibold text-[var(--fg)]">legal register</b> — citation
               phrasing, procedural language — but at{" "}
@@ -135,7 +137,7 @@ export default function Home() {
                 ["dedup", "+ decontaminate"],
                 ["BPE", "16K byte-level"],
                 ["pack", "1,024-token windows"],
-                ["pretrain", "A100 · 1 epoch"],
+                ["pretrain", `A100 · ${epochLabel}`],
               ].map(([k, v]) => (
                 <span
                   key={k}
