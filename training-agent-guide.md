@@ -81,26 +81,29 @@ the agent MUST automatically guarantee the epoch currently on the volume is alre
 saved to its own HF repo** — and export it if not. Do this itself; never ask the
 user to remember it, and never launch training until this passes.
 
-Run this preflight (from the main repo):
+Run this **single non-interactive preflight** (from the main repo) and act on its
+last line:
 ```bash
 cd "<MAIN_REPO>"
-PY="./.venv/Scripts/python.exe"; MODAL="PYTHONIOENCODING=utf-8 ./.venv/Scripts/modal.exe"
-# 1) read the step currently on the volume -> which epoch E is sitting there
-$MODAL volume get slm-125m checkpoints/base/metrics.jsonl ./_m.jsonl
-$PY -c "import json; L=[json.loads(l) for l in open('_m.jsonl') if l.strip()]; s=max(r.get('step',0) for r in L); E=round(s/3889); print(f'STEP={s} EPOCH_ON_VOLUME={E}')"
-# 2) check that epoch E is already exported to HF; if MISSING, export it BEFORE continuing
-$PY -c "
+PYTHONIOENCODING=utf-8 ./.venv/Scripts/modal.exe volume get slm-125m checkpoints/base/metrics.jsonl ./_m.jsonl
+PYTHONIOENCODING=utf-8 ./.venv/Scripts/python.exe -c "
+import json
 from huggingface_hub import list_repo_files
-E=int(input('E? '))
+step=max(json.loads(l).get('step',0) for l in open('_m.jsonl') if l.strip())
+E=round(step/3889)                        # completed epoch currently on the volume
 repo='Ace-2504/slm-125m-base' if E==1 else f'Ace-2504/slm-125m-e{E}'
 try: ok='model.safetensors' in list_repo_files(repo)
 except Exception: ok=False
-print(repo, 'ALREADY EXPORTED' if ok else 'MISSING -> run: modal run modal_export_hf.py --repo-id '+repo)
+print(f'volume_step={step} epoch_on_volume={E} repo={repo}')
+print('OK - already exported, safe to continue' if ok else f'ACTION REQUIRED - export first: modal run modal_export_hf.py --repo-id {repo}')
 "
 ```
-If it reports **MISSING**, the agent runs `modal run modal_export_hf.py --repo-id
-<that repo>` (Step D) and verifies it **before** starting the new epoch. Only when
-the on-volume epoch is confirmed exported does the agent proceed to Step B.
+- If the last line says **OK**, proceed to Step B.
+- If it says **ACTION REQUIRED**, the agent runs the printed
+  `modal run modal_export_hf.py --repo-id <repo>` (Step D), verifies the repo has
+  `model.safetensors`, then proceeds. **Never launch training while it says ACTION
+  REQUIRED.** (If a prior run was interrupted mid-epoch, `epoch_on_volume` is the
+  last *completed* epoch — export that one.)
 
 > The agent also runs Step D automatically at the **end** of every training run, so
 > the chain is protected from both sides (end-of-run export + start-of-run
@@ -129,14 +132,31 @@ data permutation (`seed + epoch`).
 1. In the epoch-N clone, edit **`modal_train.py`** → set `epochs=N` in the
    `pretrain()` call (change the hardcoded `epochs=1`). Keep `resume=True`.
 
-2. Launch **detached** (survives your machine sleeping) and monitor:
+2. Launch **detached** (survives your machine sleeping) and monitor. The clone has
+   no `.venv`, so use the **main repo's** Modal CLI + Python via absolute paths:
 ```bash
+MODAL="C:/Users/harma/OneDrive/Desktop/python/vizuara/SLM-course/Replicate-the-125M-SLM-Data-Pipeline/.venv/Scripts/modal.exe"
+PY="C:/Users/harma/OneDrive/Desktop/python/vizuara/SLM-course/Replicate-the-125M-SLM-Data-Pipeline/.venv/Scripts/python.exe"
 cd "C:/Users/harma/slm-125m-epoch{N}"
-PYTHONIOENCODING=utf-8 ../../<path-to>/.venv/Scripts/modal.exe run --detach modal_train.py
-PYTHONIOENCODING=utf-8 ./.venv/Scripts/modal.exe app logs slm-125m-pretrain   # tail loss / lr / tok/s
+PYTHONIOENCODING=utf-8 "$MODAL" run --detach modal_train.py
+PYTHONIOENCODING=utf-8 "$MODAL" app logs slm-125m-pretrain   # tail loss / lr / tok/s
 ```
-   (Use the main repo's `.venv/Scripts/modal.exe` — the clone has no `.venv`.)
-   Expect **~3–5 h** on A100. Done when the last logged `step` reaches `3889×N`.
+
+3. **Confirm it resumed** (do not skip): the startup logs must show
+   `resumed from step {3889×(N-1):,} with … tokens seen`. If it shows step 0 or the
+   line is absent, it is retraining from scratch — stop, fix `resume=True` / the
+   checkpoint, and relaunch.
+
+4. Expect **~3–5 h** on A100. It is **done only when metrics reach step `3889×N`**:
+```bash
+PYTHONIOENCODING=utf-8 "$MODAL" volume get slm-125m checkpoints/base/metrics.jsonl ./_chk.jsonl
+"$PY" -c "import json; print('max step:', max(json.loads(l).get('step',0) for l in open('_chk.jsonl') if l.strip()))"
+```
+
+5. **If the run stops early** (8 h timeout or preemption — the app shows `stopped`
+   in `modal app list` before reaching `3889×N`): simply re-run the same
+   `modal run --detach modal_train.py`. `resume=True` continues from the last
+   checkpoint (saved every 500 steps). Repeat until the max step hits `3889×N`.
 
 > **⚠️ LR-schedule research note.** `epochs=N` stretches the cosine over N epochs,
 > so when epoch N resumes, its LR is *mid-schedule* (higher than the min the prior
@@ -228,6 +248,14 @@ just pointed at the epoch-N model.
   — but then also add them to `CHART_MODELS`/`COLORS`/`ORDER` in `build_report_v2.py`
   and `build_report_v3.py`. Simplest per-epoch run: keep one `slm` entry pointing at epoch N.)
 - `run_downstream.py` → same one-line change in its `MODELS`.
+
+> **⚠️ Drift caution.** The eval clone is **reused** across epochs, so its `MODELS`
+> lists still hold the *previous* epoch's id. Set BOTH scripts to epoch N and
+> re-confirm the printed model id in the run logs before trusting results —
+> otherwise you silently re-evaluate the old model. *Cleaner one-time fix:* change
+> the `slm` entry in both scripts to
+> `os.environ.get("SLM_MODEL_ID", "Ace-2504/slm-125m-base")`, then set
+> `SLM_MODEL_ID=Ace-2504/slm-125m-e{N}` per run — no code edit each epoch.
 
 **E2. Held-out eval data is fixed** (independent SCOTUS / LEDGAR / Wikipedia / C4,
 already decontaminated and cached in `eval_data_v2/`). **Reuse it — do not
