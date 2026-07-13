@@ -73,6 +73,42 @@ Work in that folder for the training + config edits. (The eval reuses the single
 
 ---
 
+## AUTOMATED SAFEGUARD — never overwrite an un-exported epoch (the agent does this itself)
+
+The volume holds **only one, continuously-overwritten checkpoint**. Training epoch
+N overwrites epoch N-1's weights on the volume. So **before launching any epoch,
+the agent MUST automatically guarantee the epoch currently on the volume is already
+saved to its own HF repo** — and export it if not. Do this itself; never ask the
+user to remember it, and never launch training until this passes.
+
+Run this preflight (from the main repo):
+```bash
+cd "<MAIN_REPO>"
+PY="./.venv/Scripts/python.exe"; MODAL="PYTHONIOENCODING=utf-8 ./.venv/Scripts/modal.exe"
+# 1) read the step currently on the volume -> which epoch E is sitting there
+$MODAL volume get slm-125m checkpoints/base/metrics.jsonl ./_m.jsonl
+$PY -c "import json; L=[json.loads(l) for l in open('_m.jsonl') if l.strip()]; s=max(r.get('step',0) for r in L); E=round(s/3889); print(f'STEP={s} EPOCH_ON_VOLUME={E}')"
+# 2) check that epoch E is already exported to HF; if MISSING, export it BEFORE continuing
+$PY -c "
+from huggingface_hub import list_repo_files
+E=int(input('E? '))
+repo='Ace-2504/slm-125m-base' if E==1 else f'Ace-2504/slm-125m-e{E}'
+try: ok='model.safetensors' in list_repo_files(repo)
+except Exception: ok=False
+print(repo, 'ALREADY EXPORTED' if ok else 'MISSING -> run: modal run modal_export_hf.py --repo-id '+repo)
+"
+```
+If it reports **MISSING**, the agent runs `modal run modal_export_hf.py --repo-id
+<that repo>` (Step D) and verifies it **before** starting the new epoch. Only when
+the on-volume epoch is confirmed exported does the agent proceed to Step B.
+
+> The agent also runs Step D automatically at the **end** of every training run, so
+> the chain is protected from both sides (end-of-run export + start-of-run
+> re-check). Belt and suspenders — the model's weights are never left only on the
+> soon-to-be-overwritten volume.
+
+---
+
 ## STEP B — Continue pretraining for epoch N on Modal
 
 The engine (`train_core.run`) resumes from the checkpoint and trains until the
@@ -148,11 +184,14 @@ glance (epoch 1 baseline: val ppl **11.35**, val loss 2.43, ~111k tok/s, ~5.1 h)
 
 ---
 
-## STEP D — Export epoch N's weights to a new HF repo (BEFORE epoch N+1)
+## STEP D — Export epoch N's weights to a new HF repo (the agent does this automatically)
 
-This is the durable archive of epoch N. It reads the current `ckpt.pt` (= epoch N
-right now) and pushes an HF-format model. Run from the **main repo** (has `.venv`
-+ `modal_export_hf.py`):
+**The agent runs this automatically at the end of every training run — it is not
+optional and must not wait for the user to ask.** It is the durable archive of
+epoch N: it reads the current `ckpt.pt` (= epoch N right now) and pushes an
+HF-format model, so the weights survive the next epoch overwriting the volume.
+(The AUTOMATED SAFEGUARD above also re-checks it at the start of the next run.)
+Run from the **main repo** (has `.venv` + `modal_export_hf.py`):
 
 ```bash
 cd "<MAIN_REPO>"
@@ -249,11 +288,12 @@ its position vs the baselines changed.
 ## Ordering checklist (do not reorder)
 
 1. `git clone` main repo → `slm-125m-epoch{N}` (Step A)
-2. Edit `epochs=N` in the clone's `modal_train.py`; `modal run --detach` (Step B)
-3. Wait for step `3889×N`; capture `metrics.jsonl` + Modal params → `training_params_e{N}.md` (Step C)
-4. **Export to `Ace-2504/slm-125m-e{N}` and verify** (+ optional volume snapshot) (Step D) ← before any next epoch
-5. Point the eval at epoch N; run v2 harness + downstream + build_report_v3 + shoot_v3; archive (Step E)
-6. Update `EPOCHS.md` trajectory; write the verdict (Step F)
+2. **AUTOMATED SAFEGUARD (agent-run, blocking):** detect the epoch on the volume and auto-export it to HF if not already there — never launch training until this passes (Safeguard section)
+3. Edit `epochs=N` in the clone's `modal_train.py`; `modal run --detach` (Step B)
+4. Wait for step `3889×N`; capture `metrics.jsonl` + Modal params → `training_params_e{N}.md` (Step C)
+5. **Auto-export epoch N to `Ace-2504/slm-125m-e{N}` and verify** (+ optional volume snapshot) — the agent does this automatically at end of run (Step D)
+6. Point the eval at epoch N; run v2 harness + downstream + build_report_v3 + shoot_v3; archive (Step E)
+7. Update `EPOCHS.md` trajectory; write the verdict (Step F)
 
 ## Gotchas (see `debugging/` for full write-ups)
 
